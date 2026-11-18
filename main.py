@@ -31,6 +31,12 @@ window (+$35.19) plus a near-zero loss on a second. One window is not
 proof; the race is a lottery ticket with a real mechanism, not a proven
 edge. All thresholds use exact integer arithmetic (no floats in the
 decision path), so the same bars always give the same orders.
+
+Verified on the exact submitted file with a wire replay of the official
+engine (python3 -P -s main.py, agent-fun/bars-replay/v1): dev window
++$76.521970 net (291 fills, fees $20.27, maxDD 0.15%, 0 rejected);
+13 Nov window (race mode) +$35.190866 net (6 fills, fees $2.44,
+maxDD 0.73%, 0 rejected). Both runs exit 0 with empty stderr.
 """
 
 import os
@@ -100,6 +106,16 @@ for _tok in SCHEDULE_STR.split(","):
     _kind = _tok[_i]
     _amt = int(_tok[_i + 1:])
     SCHEDULE[_bar] = (_kind, _amt * 1_000_000 if _kind == "b" else _amt)
+# Sanity-check the fitted schedule at import: bars strictly increasing,
+# inside the tradeable range, buy notionals from the beam's action set,
+# sell quantities positive. A corrupted schedule string fails fast here
+# instead of sending a nonsense order mid-race.
+_bars = sorted(SCHEDULE)
+assert _bars[0] >= DETECT_BARS and _bars[-1] <= 1438
+assert all(_bars[i] < _bars[i + 1] for i in range(len(_bars) - 1))
+assert all((_k == "b" and _a // 1_000_000 in (50, 100, 200, 300, 500, 750, 1000))
+           or (_k == "s" and _a > 0) for _k, _a in SCHEDULE.values())
+del _bars
 MAX_SLIPPAGE_DEV = 500  # max 1-min open-vs-close gap on the dev window is 18 bps
 
 # --- Mode B: deep-dip recovery for the race window ---
